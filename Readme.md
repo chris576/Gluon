@@ -57,18 +57,35 @@ a domain-specific language (DSL) can bridge this gap.
 Here’s an example of how such a DSL could look in practice:
 
 ```kotlin
-fun EventContext.registerEvent() {
-    mapping {
-        trigger {
-            post("/route") {
-                eventContext.fireEvent(ExampleEvent())
-            }
-        }
-        handler {
-            // Maybe obsolete because the aggregateContext should always get the event?
-            aggregateContext.requestStateChange(event)
-        }
-    }
+fun CommandContext.registerCommand() {
+    
+    registerCommandTrigger(
+      cause = PostRequest(route = "/", dto = MyDto::class),
+      commandType = MyCommand::class,
+      // Returns error, if validation of the dto failed.
+      dtoValidation = { 
+          Error.None
+      },
+      // It is the dto to be translated.
+      dtoTranslation = {
+          MyCommand(it.value)
+      }
+    )
+  
+    registerCommandValidation(
+        commandType = MyCommand::class,
+        validation = {
+            Error.None
+        },
+        priority = 1
+    )
+  
+  registerCommandHandling(
+      commandType = MyCommand::class,
+      translation =  {
+          MyEvent(it.value)
+      }
+  )
 }
 ```
 
@@ -109,13 +126,18 @@ corresponding state change using a functional approach.
 Here’s an example of how this could look using a domain-specific language (DSL):
 
 ```kotlin 
-fun AggregateContext.handleOurEvent() {
-    mapping {
-        it.trigger = Event()
-        stateChange {
-            aggregateCollection.get(event.uuid).newState(event.state)
+fun AggregateContext.registerDefaultAggregate() {
+    registerAggregate(
+        state = mutableStateOf("Text"),
+        id = randomId
+    )
+    registerEventHandler(
+        eventType = MyEvent::class,
+        aggregateId = randomId, 
+        handler = { event: MyEvent, aggregate: Aggetate ->
+            // DO Event Handling
         }
-    }
+    )
 }
 ```
 
